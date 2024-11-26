@@ -10,7 +10,7 @@ import requests
 
 st.header('Music Analytics App')
 
-sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=CLIENT_ID,client_secret=CLIENT_SECRET))
+sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=st.secrets['CLIENT_ID'],client_secret=st.secrets['CLIENT_SECRET']))
 
 # def save_album_image(img_url, track_id):
 #     r = requests.get(img_url)
