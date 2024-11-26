@@ -12,12 +12,12 @@ st.header('Music Analytics App')
 
 sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=CLIENT_ID,client_secret=CLIENT_SECRET))
 
-def save_album_image(img_url, track_id):
-    r = requests.get(img_url)
-    file_path = f'app/img/{track_id}.jpg'
-    with open(file_path, "wb") as file:
-        file.write(r.content)    
-    return file_path
+# def save_album_image(img_url, track_id):
+#     r = requests.get(img_url)
+#     file_path = f'app/img/{track_id}.jpg'
+#     with open(file_path, "wb") as file:
+#         file.write(r.content)    
+#     return file_path
 
 search_choices = ['Song', 'Album', 'Artist/Band']
 search_selected = st.sidebar.selectbox("Search by: ", search_choices)
@@ -103,9 +103,10 @@ def song_features(item_data):
     valid_features = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence']
     df_features = df[valid_features]
 
-    image_path = save_album_image(item_data['album']['images'][1]['url'], item_id)
+    # image_path = save_album_image(item_data['album']['images'][1]['url'], item_id)
     st.subheader(f"Album/EP: {track_data['album']['name']} ({track_data['album']['release_date'][:4]})")
-    st.image(image_path, caption=f"Track ID: {item_id}", use_container_width=True)
+    # st.image(image_path, caption=f"Track ID: {item_id}", use_container_width=True)
+    st.image(item_data['album']['images'][1]['url'], use_container_width=True)
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Popularity (0-100)", track_data['popularity'])
@@ -154,17 +155,17 @@ def song_comparison(item_data):
         df_features = pd.concat([df_features, combined_df['name']], axis=1)
         df_features['name'] = combined_df['name'].apply(lambda x: x[:15] + "..." if len(x) > 15 else x)
 
-        image_path_1 = save_album_image(item_data['album']['images'][1]['url'], item_id_1)
-        image_path_2 = save_album_image(item_comparison_data['album']['images'][1]['url'], item_id_2)
+        # image_path_1 = save_album_image(item_data['album']['images'][1]['url'], item_id_1)
+        # image_path_2 = save_album_image(item_comparison_data['album']['images'][1]['url'], item_id_2)
 
         col1, col2 = st.columns(2)
 
         with col1:
             st.subheader(f"Album/EP: {track_data_1['album']['name']} ({track_data_1['album']['release_date'][:4]})")
-            st.image(image_path_1, caption=f"Track ID: {item_id_1}", use_container_width=True)
+            st.image(item_data['album']['images'][1]['url'], caption=f"Track ID: {item_id_1}", use_container_width=True)
         with col2:
             st.subheader(f"Album/EP: {track_data_2['album']['name']} ({track_data_2['album']['release_date'][:4]})")
-            st.image(image_path_2, caption=f"Track ID: {item_id_2}", use_container_width=True)
+            st.image(item_comparison_data['album']['images'][1]['url'], caption=f"Track ID: {item_id_2}", use_container_width=True)
 
 
         df_long = df_features.melt(id_vars='name', var_name='feature', value_name='value')
