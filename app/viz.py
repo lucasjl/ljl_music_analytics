@@ -368,49 +368,34 @@ def album_comparison(item_data):
                 for idx in df_tracks_2.index
             ])
         
-        # Build the heatmap
+        # heatmap 1
         fig_1 = go.Figure(data=go.Heatmap(
             z=df_tracks_1[valid_features].T.values,
             x=df_tracks_1["track_number"],
             y=valid_features,
-            # texttemplate="%{z:.2f}",
             colorscale="RdBu_r", 
             text=hover_text_1,  
             showscale=False,
             hoverinfo="text"  
         ))
 
-        # Update layout
         fig_1.update_layout(
             title="Feature Heatmap per Track",
-            # xaxis_title="Track Number",
-            # yaxis_title="Features",
-            # xaxis=dict(tickmode="array", tickvals=df_tracks["track_number"], ticktext=df_tracks["track_number"]),
-            # yaxis=dict(tickmode="array", tickvals=valid_features, ticktext=valid_features),
-            # autosize=True,
             xaxis_visible=False,
             margin=dict(l=50, r=0, t=50, b=50)
         )
 
-        # Build the heatmap 2
+        # heatmap 2
         fig_2 = go.Figure(data=go.Heatmap(
             z=df_tracks_2[valid_features].T.values,
             x=df_tracks_2["track_number"],
             y=valid_features,
-            # texttemplate="%{z:.2f}",
-            colorscale="RdBu_r",  # Choose a color scale
-            text=hover_text_2,  # Custom hover info
-            hoverinfo="text"  # Display custom hover info
+            colorscale="RdBu_r", 
+            text=hover_text_2,  
+            hoverinfo="text"  
         ))
 
-        # Update layout
         fig_2.update_layout(
-            # title="Audio Features Heatmap 2",
-            # xaxis_title="Track Number",
-            # yaxis_title="Features",
-            # xaxis=dict(tickmode="array", tickvals=df_tracks["track_number"], ticktext=df_tracks["track_number"]),
-            # yaxis=dict(tickmode="array", tickvals=valid_features, ticktext=valid_features),
-            # autosize=True,
             yaxis_visible=False,
             xaxis_visible=False,
             margin=dict(l=25, r=50, t=50, b=50)
@@ -498,30 +483,18 @@ def artist_features(item_data):
             })
 
         album_df = pd.DataFrame(track_data)
-        # artist_df = pd.concat([artist_df, album_df], ignore_index=True)
         track_ids = album_df["Track ID"].tolist()
 
         album_features = sp.audio_features(track_ids)
         features_df = pd.DataFrame(album_features).set_index("id")[valid_features]
         album_df = album_df.set_index("Track ID").join(features_df, how="left").reset_index()
 
-        # for track in album_features:
-        #     for feature in valid_features:
-        #         album_df.loc[album_df['Track ID'] == track['id'], feature] = track[feature]
-        #         # artist_df.loc[artist_df['Track ID'] == track['id'], feature] = track[feature]
-
         album_tracks_details = sp.tracks(track_ids)
         popularity_df = pd.DataFrame(album_tracks_details['tracks'])[['id', 'popularity']].set_index("id")
         popularity_df["popularity"] = popularity_df["popularity"] / 100
         album_df = album_df.set_index("Track ID").join(popularity_df, how="left").reset_index()
 
-
-        # for track_detail in album_tracks_details['tracks']:
-        #     album_df.loc[album_df['Track ID'] == track_detail['id'], 'popularity'] = track_detail['popularity']/100
-        #     # artist_df.loc[artist_df['Track ID'] == track_detail['id'], 'popularity'] = track_detail['popularity']/100
-
         artist_df = pd.concat([artist_df, album_df], ignore_index=True)
-
     
     if artist_df.empty:
         st.warning("No albums found for this artist.")
@@ -545,7 +518,6 @@ def artist_features(item_data):
     if len(artist_df) > 0:
         artist_df['Release Date'] = pd.to_datetime(artist_df['Release Date'], errors='coerce')
 
-        # Handle NaT by parsing as year
         artist_df['Release Date'] = artist_df['Release Date'].fillna(
             pd.to_datetime(artist_df['Release Date'][:4], format='%Y', errors='coerce')
         )
@@ -553,6 +525,11 @@ def artist_features(item_data):
         st.write("Select a band/artist and an audio feature to visualize their albums.")
 
     valid_features.append('popularity')
+
+    # #backup saving to csv
+    # output_file = f"artist_feature_{item_data['name']}.csv"
+    # artist_df.to_csv(output_file, index=False)
+
     return artist_df, valid_features
 
 def get_input_feature_and_plot(artist_df, valid_features):
@@ -571,12 +548,6 @@ def get_input_feature_and_plot(artist_df, valid_features):
                         color="Album (Year)",
                         custom_data=["Album"]
                         )
-        # fig.update_traces(hovertemplate=(
-        #                         "<b>Album:</b> %{customdata[0]}<br>" 
-        #                         "<b>Median:</b> %{y}<br>" 
-        #                         "<b>Average:</b> %{yavg}<extra></extra>"  
-        #                     )
-        #                 )
         
         st.plotly_chart(fig_boxplot)
 
@@ -584,22 +555,24 @@ def get_input_feature_and_plot(artist_df, valid_features):
                     x="Album (Year)", 
                     y=feature, 
                     color="Album (Year)", 
-                    box=True,  # Include a boxplot inside the violin
-                    points="all",  # Show individual data points
-                    custom_data=["Album"]
+                    box=True, 
+                    points="all", 
+                    custom_data=["Album", "Track"]
 
                 )
         
         fig_violin.update_layout(
             xaxis_title="Album (Year)",
             yaxis_title=feature.capitalize(),
-            xaxis_tickangle=-45
+            xaxis_tickangle=-45,
+            showlegend=False,  
+
         )
 
         fig_violin.update_traces(hovertemplate=(
                         "<b>Album:</b> %{customdata[0]}<br>" 
-                        "<b>Median:</b> %{y}<br>" 
-                        "<b>Average:</b> %{yavg}<extra></extra>"  
+                        "<b>Track:</b> %{customdata[1]}<br>"  
+                        "<b>Value:</b> %{y}<br>" 
                     )
                 )
 
@@ -634,9 +607,8 @@ def get_input_feature_and_plot(artist_df, valid_features):
         fig_scatter.update_layout(
             xaxis_title=None,
             yaxis_title=feature.capitalize(),
-            # xaxis_tickangle=-45,  # Rotate x-axis labels
-            showlegend=False,  # Show legend
-            # height=600,  # Adjust height if necessary
+            showlegend=False,  
+            # height=600,  
         )
 
         st.plotly_chart(fig_scatter, use_container_width=True)
@@ -660,11 +632,246 @@ def get_input_feature_and_plot(artist_df, valid_features):
 
         st.plotly_chart(fig_heatmap, use_container_width=True)
 
-        st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
+        # st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
 
-
+# @st.cache_data
 def artist_comparison(item_data):
-    pass
+    item_comparison_data = item_comparison()
+    if item_comparison_data is not None:
+        item_id_1 = item_data['id']
+        item_id_2 = item_comparison_data['id']
+
+        initcol1, initcol2 = st.columns(2)
+        col1, col2 = st.columns(2)
+        col11, col12, col21, col22 = st.columns(4)
+
+        with initcol1:
+            st.subheader(f"{item_data['name']}")
+            st.markdown(f"###### {', '.join(item_data['genres'])}")
+        with initcol2:
+            st.subheader(f"{item_comparison_data['name']}")
+            st.markdown(f"###### {', '.join(item_comparison_data['genres'])}")
+        with col1:
+            st.image(item_data['images'][1]['url'], caption=f"ID: {item_id_1}", use_container_width=True)
+        with col2:
+            st.image(item_comparison_data['images'][1]['url'], caption=f"ID: {item_id_1}", use_container_width=True)
+
+        full_albums_1 = 0
+        full_albums_2 = 0
+        single_collections_1 = 0
+        single_collections_2 = 0
+        valid_features = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo', 'loudness', 'duration_ms']
+
+        artist_albums_1 = sp.artist_albums(item_id_1)
+        artist_albums_2 = sp.artist_albums(item_id_2)
+        artist_df = pd.DataFrame()
+
+        for album in artist_albums_1['items']:
+            if album['album_type'] == 'album':
+                full_albums_1 += 1
+            elif album['album_type'] == 'single':
+                single_collections_1 += 1
+                continue
+
+            tracks = sp.album_tracks(album['id'])
+
+            track_data = []
+            for track in tracks['items']:
+                track_data.append({
+                    "Artist ID": item_data['id'],
+                    "Album ID": album['id'],
+                    "Album": album['name'],
+                    "Release Date": album['release_date'],
+                    "Track ID": track['id'],
+                    "Track": track['name']
+                })
+
+            album_df = pd.DataFrame(track_data)
+            track_ids = album_df["Track ID"].tolist()
+
+            album_features = sp.audio_features(track_ids)
+            features_df = pd.DataFrame(album_features).set_index("id")[valid_features]
+            album_df = album_df.set_index("Track ID").join(features_df, how="left").reset_index()
+
+            album_tracks_details = sp.tracks(track_ids)
+            popularity_df = pd.DataFrame(album_tracks_details['tracks'])[['id', 'popularity']].set_index("id")
+            popularity_df["popularity"] = popularity_df["popularity"] / 100
+            album_df = album_df.set_index("Track ID").join(popularity_df, how="left").reset_index()
+
+            artist_df = pd.concat([artist_df, album_df], ignore_index=True)
+
+        for album in artist_albums_2['items']:
+            if album['album_type'] == 'album':
+                full_albums_2 += 1
+            elif album['album_type'] == 'single':
+                single_collections_2 += 1
+                continue
+
+            tracks = sp.album_tracks(album['id'])
+
+            track_data = []
+            for track in tracks['items']:
+                track_data.append({
+                    "Artist ID": item_comparison_data['id'],
+                    "Album ID": album['id'],
+                    "Album": album['name'],
+                    "Release Date": album['release_date'],
+                    "Track ID": track['id'],
+                    "Track": track['name']
+                })
+
+            album_df = pd.DataFrame(track_data)
+            track_ids = album_df["Track ID"].tolist()
+
+            album_features = sp.audio_features(track_ids)
+            features_df = pd.DataFrame(album_features).set_index("id")[valid_features]
+            album_df = album_df.set_index("Track ID").join(features_df, how="left").reset_index()
+
+            album_tracks_details = sp.tracks(track_ids)
+            popularity_df = pd.DataFrame(album_tracks_details['tracks'])[['id', 'popularity']].set_index("id")
+            popularity_df["popularity"] = popularity_df["popularity"] / 100
+            album_df = album_df.set_index("Track ID").join(popularity_df, how="left").reset_index()
+
+            artist_df = pd.concat([artist_df, album_df], ignore_index=True)
+        
+        if artist_df.empty:
+            st.warning("No albums found for this artist.")
+            return
+
+        with col11:
+            st.metric("Popularity", item_data['popularity']/100)
+            st.metric("Spotify Followers", f"{item_data['followers']['total']:,}")
+        with col12:
+            st.metric("Albums", full_albums_1)
+            st.metric("Single Collections", single_collections_1)
+        with col21:
+            st.metric("Popularity", item_comparison_data['popularity']/100)
+            st.metric("Spotify Followers", f"{item_comparison_data['followers']['total']:,}")
+        with col22:
+            st.metric("Albums", full_albums_2)
+            st.metric("Single Collections", single_collections_2)
+
+        if len(artist_df) > 0:
+            artist_df['Release Date'] = pd.to_datetime(artist_df['Release Date'], errors='coerce')
+
+            artist_df['Release Date'] = artist_df['Release Date'].fillna(
+                pd.to_datetime(artist_df['Release Date'][:4], format='%Y', errors='coerce')
+            )
+            artist_df = artist_df.sort_values('Release Date')
+
+        valid_features.append('popularity')
+
+        return artist_df, valid_features, item_comparison_data
+
+def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, item_comparison_data):
+    if len(artist_df) > 0:
+        artist_df['Release Year'] = artist_df['Release Date'].dt.year
+        artist_df['Album (Year)'] = artist_df.apply(
+            lambda row: f"{row['Album'][:12]}.. ({row['Release Year']})" if len(row['Album']) > 15 
+                        else f"{row['Album']} ({row['Release Year']})", 
+            axis=1
+        )
+
+        feature = st.selectbox("Select an attribute to plot:", valid_features)
+        fig_boxplot = px.box(artist_df, 
+                        x="Album (Year)", 
+                        y=feature, 
+                        # color="Album (Year)",
+                        color="Artist ID", 
+                        color_discrete_sequence=px.colors.qualitative.G10,
+                        category_orders={"Album (Year)": list(artist_df["Album (Year)"].unique())},
+                        custom_data=["Album"]
+                        )
+        
+        st.plotly_chart(fig_boxplot)
+        
+        #violin
+        fig_violin = px.violin(artist_df, 
+                    x="Album (Year)", 
+                    y=feature, 
+                    # box=True, 
+                    color="Artist ID", 
+                    color_discrete_sequence=px.colors.qualitative.G10,
+                    category_orders={"Album (Year)": list(artist_df["Album (Year)"].unique())},
+                    points="all", 
+                    violinmode='overlay',
+                    custom_data=["Album", "Track"]
+
+                )
+        
+        fig_violin.update_layout(
+            yaxis_title=feature.capitalize(),
+            legend=dict(orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                        )
+
+        )
+
+        fig_violin.update_traces(hovertemplate=(
+                        "<b>Album:</b> %{customdata[0]}<br>" 
+                        "<b>Track:</b> %{customdata[1]}<br>"  
+                        "<b>Value:</b> %{y}<br>" 
+                    )
+                )
+
+        st.plotly_chart(fig_violin)
+        
+        #heat albuns
+        #pra ordenar, talvez tenha que user o .agg da outra, ou voltar e pegar só o album year msm, sem album
+        heatmap_features = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'popularity']
+        heatmap_df_1 = artist_df[artist_df['Artist ID'] == item_data['id']].groupby(["Album (Year)", "Album"])[heatmap_features].mean()
+        heatmap_df_2 = artist_df[artist_df['Artist ID'] == item_comparison_data['id']].groupby(["Album (Year)", "Album"])[heatmap_features].mean()
+        
+        # heatmap 1
+        fig_1 = go.Figure(data=go.Heatmap(
+            z=heatmap_df_1.round(3).T.values,
+            x=heatmap_df_1.index.get_level_values("Album (Year)").tolist(),
+            y=heatmap_features,
+            colorscale="RdBu_r", 
+            showscale=False,
+            text=heatmap_df_1.round(3).T.values, 
+            texttemplate="%{text}",
+            hovertemplate=
+                "<b>%{x}</b><br>"  
+                + "%{y}: %{z}<br>",  
+                                ))
+
+        fig_1.update_layout(
+            title=f"{item_data['name']}",
+            xaxis_visible=False,
+            margin=dict(l=50, r=0, t=50, b=50)
+        )
+
+        # heatmap 2
+        fig_2 = go.Figure(data=go.Heatmap(
+            z=heatmap_df_2.round(3).T.values,
+            x=heatmap_df_2.index.get_level_values("Album").tolist(),
+            y=heatmap_features,
+            colorscale="RdBu_r", 
+            text=heatmap_df_2.round(3).T.values, 
+            texttemplate="%{text}",
+            hovertemplate=
+                "<b>%{x}</b><br>"  
+                + "%{y}: %{z}<br>",  
+        ))
+
+        fig_2.update_layout(
+            title=f"{item_comparison_data['name']}",
+            yaxis_visible=False,
+            xaxis_visible=False,
+            margin=dict(l=25, r=50, t=50, b=50)
+        )
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            st.plotly_chart(fig_1, use_container_width=True)
+        with col4:
+            st.plotly_chart(fig_2, use_container_width=True)
+
+        st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
 
 
 if __name__ == "__main__":
@@ -686,4 +893,5 @@ if __name__ == "__main__":
         artist_df, valid_features = artist_features(item_data)
         get_input_feature_and_plot(artist_df, valid_features)
     elif selected_analysis == 'Artist/Band Comparison':
-        artist_comparison(item_data)
+        artist_df, valid_features, item_comparison_data = artist_comparison(item_data)
+        get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, item_comparison_data)
