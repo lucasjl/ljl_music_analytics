@@ -632,11 +632,10 @@ def get_input_feature_and_plot(artist_df, valid_features):
 
         st.plotly_chart(fig_heatmap, use_container_width=True)
 
-        # st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
+        st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
 
 # @st.cache_data
-def artist_comparison(item_data):
-    item_comparison_data = item_comparison()
+def artist_comparison(item_data, item_comparison_data):
     if item_comparison_data is not None:
         item_id_1 = item_data['id']
         item_id_2 = item_comparison_data['id']
@@ -762,13 +761,15 @@ def artist_comparison(item_data):
         valid_features.append('popularity')
 
         return artist_df, valid_features, item_comparison_data
+    return None, None, None
 
 def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, item_comparison_data):
     if len(artist_df) > 0:
-        artist_df['Release Year'] = artist_df['Release Date'].dt.year
+        artist_df['Release Year'] = artist_df['Release Date'].dt.year.astype('Int64') 
         artist_df['Album (Year)'] = artist_df.apply(
-            lambda row: f"{row['Album'][:12]}.. ({row['Release Year']})" if len(row['Album']) > 15 
-                        else f"{row['Album']} ({row['Release Year']})", 
+            lambda row: f"{row['Album'][:12]}.. ({row['Release Year']})" if pd.notna(row['Release Year']) and len(row['Album']) > 15
+                        else f"{row['Album']} ({row['Release Year']})" if pd.notna(row['Release Year'])
+                        else row['Album'],  
             axis=1
         )
 
@@ -820,15 +821,16 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
         st.plotly_chart(fig_violin)
         
         #heat albuns
-        #pra ordenar, talvez tenha que user o .agg da outra, ou voltar e pegar só o album year msm, sem album
         heatmap_features = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'popularity']
-        heatmap_df_1 = artist_df[artist_df['Artist ID'] == item_data['id']].groupby(["Album (Year)", "Album"])[heatmap_features].mean()
-        heatmap_df_2 = artist_df[artist_df['Artist ID'] == item_comparison_data['id']].groupby(["Album (Year)", "Album"])[heatmap_features].mean()
+        filtered_df_1 = artist_df[artist_df['Artist ID'] == item_data['id']]
+        heatmap_df_1 = (filtered_df_1.groupby(["Album (Year)"])[heatmap_features].mean().reindex(filtered_df_1['Album (Year)'].unique()))
+        filtered_df_2 = artist_df[artist_df['Artist ID'] == item_comparison_data['id']]
+        heatmap_df_2 = (filtered_df_2.groupby(["Album (Year)"])[heatmap_features].mean().reindex(filtered_df_2['Album (Year)'].unique()))
         
         # heatmap 1
         fig_1 = go.Figure(data=go.Heatmap(
             z=heatmap_df_1.round(3).T.values,
-            x=heatmap_df_1.index.get_level_values("Album (Year)").tolist(),
+            x=heatmap_df_1.index.tolist(),
             y=heatmap_features,
             colorscale="RdBu_r", 
             showscale=False,
@@ -848,7 +850,7 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
         # heatmap 2
         fig_2 = go.Figure(data=go.Heatmap(
             z=heatmap_df_2.round(3).T.values,
-            x=heatmap_df_2.index.get_level_values("Album").tolist(),
+            x=heatmap_df_2.index.get_level_values("Album (Year)").tolist(),
             y=heatmap_features,
             colorscale="RdBu_r", 
             text=heatmap_df_2.round(3).T.values, 
@@ -893,5 +895,7 @@ if __name__ == "__main__":
         artist_df, valid_features = artist_features(item_data)
         get_input_feature_and_plot(artist_df, valid_features)
     elif selected_analysis == 'Artist/Band Comparison':
-        artist_df, valid_features, item_comparison_data = artist_comparison(item_data)
-        get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, item_comparison_data)
+        item_comparison_data = item_comparison()
+        artist_df, valid_features, item_comparison_data = artist_comparison(item_data, item_comparison_data)
+        if item_comparison_data is not None:
+            get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, item_comparison_data)
