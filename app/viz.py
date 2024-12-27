@@ -3,6 +3,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
+import lyricsgenius
 
 import pandas as pd
 import streamlit as st
@@ -14,8 +15,10 @@ st.header('Music Analytics App')
 # access_token = 'BQDLhaCDCpYj-Tt_CIQAg8tFk4KMdRPze5aH-Yr9XHqi2Ca6LcTIXP3Za6PMBriinmXKqOrMxBZMKDcEXGkgU_kJt9rxUXiw8OkuSYouJ3D6DgTCiTVgYQxnkhx6JMCa5YpdiBNW_G_0r7Tgk6i9Zw6T0Yt2tjJg6OTsB0UV3ZFNZxnwoYWWsEO7gZJix7EUZv494YifAku4lbbbFS6bch3nzcfG48mhr_nCHOO4s-Zq1I_8Za3TJp7iD3yvy8M1XQ0DqwaktmI0CAj_Gof6PmwukBrCxH1cVB26IF1QJYe8irieIWbVq9STZblc_eimhG98E1qcve5K50k'
 # # url = 'https://open.spotify.com/get_access_token'
 access_token = requests.get('https://open.spotify.com/get_access_token').json()['accessToken']
-
 sp = spotipy.Spotify(auth=access_token)
+
+genius_access_token = 'AjM8p0-uc9bBIb3Bww9Ft6BsldfDAsLXdpyucGP9lQHv6gtVJec0Lyg9dPnoxf-j'
+genius = lyricsgenius.Genius(genius_access_token, remove_section_headers=True, skip_non_songs=True)
 
 search_choices = ['Song', 'Album', 'Artist/Band']
 search_selected = st.sidebar.selectbox("Search by: ", search_choices)
@@ -123,6 +126,10 @@ def song_features(item_data):
     st.plotly_chart(fig)
     st.dataframe(df_features, hide_index=True, use_container_width=True)
 
+    song_lyrics = genius.search_song(item_data['name'], track_data['artists'][0]['name'])
+    st.markdown("##### Lyrics")
+    st.markdown(f":gray[{song_lyrics.lyrics.replace("\n", "<br>")}]", unsafe_allow_html=True)
+
 def item_comparison():
     comparison_keyword = st.text_input("Which " + search_selected.lower() + " do you want to compare with?")
 
@@ -205,6 +212,25 @@ def song_comparison(item_data):
 
         st.plotly_chart(fig)
         st.dataframe(df_features, hide_index=True, use_container_width=True)
+
+        col3, col4 = st.columns(2)
+        song_lyrics_1 = genius.search_song(item_data['name'], track_data_1['artists'][0]['name'])
+        song_lyrics_2 = genius.search_song(item_comparison_data['name'], track_data_2['artists'][0]['name'])
+
+        with col3:
+            st.markdown(f"##### {item_data['name']}")
+            if song_lyrics_1 is not None:
+                st.markdown(f":gray[{song_lyrics_1.lyrics.replace("\n", "<br>")}]", unsafe_allow_html=True)
+            else:
+                st.markdown(":gray[No lyrics found on database.]")
+
+        with col4:
+            st.markdown(f"##### {item_comparison_data['name']}")
+            if song_lyrics_2 is not None:
+                st.markdown(f":gray[{song_lyrics_2.lyrics.replace("\n", "<br>")}]", unsafe_allow_html=True)
+            else:
+                st.markdown(":gray[No lyrics found on database.]")
+
 
 def album_features(item_data):
     album_id = item_data['id']
@@ -831,7 +857,6 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
             st.plotly_chart(fig_2, use_container_width=True)
 
         #polar chart
-        # combined_df = pd.concat([df_tracks_1, df_tracks_2], ignore_index=True)
         grouped_df = artist_df.groupby("Artist ID").agg(
                                                         artist_name=("Artist", "first"),
                                                         popularity=("popularity", "mean"),
@@ -859,7 +884,7 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
                         category_orders={"Album (Year)": list(artist_df["Album (Year)"].unique())},
                         custom_data=["Album"]
                         )
-                        
+
         fig_boxplot.update_layout(
             title = f"{feature.capitalize()} per album over time - Boxplot",
             yaxis_title=feature.capitalize(),
