@@ -69,30 +69,6 @@ def collect_analysis_info():
 
     return selected_analysis, item_data
 
-def analysis_choice_workflow():
-    items = sp.search(q=f'{params[search_selected]['search_by']}:'+ search_keyword,type=params[search_selected]['search_by'], limit=10)
-    items_list = items[f'{params[search_selected]['search_by']}s']['items']
-    search_results = []
-
-    for item in items_list:
-        if item is not None:
-            if search_selected in ['Song', 'Album']:
-                search_results.append(params[search_selected]['search_results'].format(item['name'], item['artists'][0]['name']))
-            elif search_selected == 'Artist/Band':
-                search_results.append(params[search_selected]['search_results'].format(item['name']))
-
-    selected_item = st.selectbox(f"Select your {search_selected}: ", search_results)
-
-    for item in items_list:
-        if item is not None:
-            str_temp = item['name'] + " - " + item['artists'][0]['name'] if search_selected in ['Song', 'Album'] else item['name']
-            if str_temp == selected_item:
-                item_data = item
-
-    if item_data is not None:
-        selected_analysis = st.sidebar.selectbox('Select your action: ', params[search_selected]['item_choices'])    
-        return selected_analysis, item_data        
-    
 def song_features(item_data):
     item_id = item_data['id']
 
@@ -230,7 +206,6 @@ def song_comparison(item_data):
                 st.markdown(f":gray[{song_lyrics_2.lyrics.replace("\n", "<br>")}]", unsafe_allow_html=True)
             else:
                 st.markdown(":gray[No lyrics found on database.]")
-
 
 def album_features(item_data):
     album_id = item_data['id']
