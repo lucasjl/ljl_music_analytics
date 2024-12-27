@@ -433,6 +433,7 @@ def album_comparison(item_data):
         with col4:
             st.plotly_chart(fig_2)
         
+        #polar chart
         combined_df = pd.concat([df_tracks_1, df_tracks_2], ignore_index=True)
         grouped_df = combined_df.groupby("album_id").agg(
                                                         album_name=("album_name", "first"),
@@ -678,6 +679,7 @@ def artist_comparison(item_data, item_comparison_data):
             for track in tracks['items']:
                 track_data.append({
                     "Artist ID": item_data['id'],
+                    "Artist": item_data['name'],
                     "Album ID": album['id'],
                     "Album": album['name'],
                     "Release Date": album['release_date'],
@@ -712,6 +714,7 @@ def artist_comparison(item_data, item_comparison_data):
             for track in tracks['items']:
                 track_data.append({
                     "Artist ID": item_comparison_data['id'],
+                    "Artist": item_comparison_data['name'],
                     "Album ID": album['id'],
                     "Album": album['name'],
                     "Release Date": album['release_date'],
@@ -773,52 +776,6 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
             axis=1
         )
 
-        feature = st.selectbox("Select an attribute to plot:", valid_features)
-        fig_boxplot = px.box(artist_df, 
-                        x="Album (Year)", 
-                        y=feature, 
-                        # color="Album (Year)",
-                        color="Artist ID", 
-                        color_discrete_sequence=px.colors.qualitative.G10,
-                        category_orders={"Album (Year)": list(artist_df["Album (Year)"].unique())},
-                        custom_data=["Album"]
-                        )
-        
-        st.plotly_chart(fig_boxplot)
-        
-        #violin
-        fig_violin = px.violin(artist_df, 
-                    x="Album (Year)", 
-                    y=feature, 
-                    # box=True, 
-                    color="Artist ID", 
-                    color_discrete_sequence=px.colors.qualitative.G10,
-                    category_orders={"Album (Year)": list(artist_df["Album (Year)"].unique())},
-                    points="all", 
-                    violinmode='overlay',
-                    custom_data=["Album", "Track"]
-
-                )
-        
-        fig_violin.update_layout(
-            yaxis_title=feature.capitalize(),
-            legend=dict(orientation="h",
-                        yanchor="bottom",
-                        y=1.02,
-                        xanchor="right",
-                        x=1
-                        )
-
-        )
-
-        fig_violin.update_traces(hovertemplate=(
-                        "<b>Album:</b> %{customdata[0]}<br>" 
-                        "<b>Track:</b> %{customdata[1]}<br>"  
-                        "<b>Value:</b> %{y}<br>" 
-                    )
-                )
-
-        st.plotly_chart(fig_violin)
         
         #heat albuns
         heatmap_features = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'popularity']
@@ -873,6 +830,85 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
         with col4:
             st.plotly_chart(fig_2, use_container_width=True)
 
+        #polar chart
+        # combined_df = pd.concat([df_tracks_1, df_tracks_2], ignore_index=True)
+        grouped_df = artist_df.groupby("Artist ID").agg(
+                                                        artist_name=("Artist", "first"),
+                                                        popularity=("popularity", "mean"),
+                                                        acousticness=("acousticness", "mean"), 
+                                                        danceability=("danceability", "mean"), 
+                                                        energy=("energy", "mean"),
+                                                        instrumentalness=("instrumentalness", "mean"), 
+                                                        liveness=("liveness", "mean"),
+                                                        speechiness=("speechiness", "mean"), 
+                                                        valence=("valence", "mean") 
+                                                        ).reset_index()
+        df_long = grouped_df.melt(id_vars=['Artist ID', 'artist_name'], var_name='feature', value_name='value')
+        fig_polar = px.line_polar(df_long, r='value', theta='feature', color='artist_name', line_close=True, template="plotly_dark")
+        fig_polar.update_layout(title = 'Polar Chart - Average Features',legend=dict(orientation="h"), height = 700, font_size = 16, autosize=True) 
+        st.plotly_chart(fig_polar, use_container_width=True)
+
+        feature = st.selectbox("Select an attribute to plot:", valid_features)
+        
+        #boxplot
+        fig_boxplot = px.box(artist_df, 
+                        x="Album (Year)", 
+                        y=feature, 
+                        color="Artist", 
+                        color_discrete_sequence=px.colors.qualitative.G10,
+                        category_orders={"Album (Year)": list(artist_df["Album (Year)"].unique())},
+                        custom_data=["Album"]
+                        )
+                        
+        fig_boxplot.update_layout(
+            title = f"{feature.capitalize()} per album over time - Boxplot",
+            yaxis_title=feature.capitalize(),
+            xaxis_title=None,
+            legend=dict(orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                        )
+
+        )
+        
+        st.plotly_chart(fig_boxplot)
+        
+        #violin
+        fig_violin = px.violin(artist_df, 
+                    x="Album (Year)", 
+                    y=feature, 
+                    color="Artist", 
+                    color_discrete_sequence=px.colors.qualitative.G10,
+                    category_orders={"Album (Year)": list(artist_df["Album (Year)"].unique())},
+                    points="all", 
+                    violinmode='overlay',
+                    custom_data=["Album", "Track"]
+
+                )
+        
+        fig_violin.update_layout(
+            title = f"{feature.capitalize()} per album over time - Violin",
+            yaxis_title=feature.capitalize(),
+            xaxis_title=None,
+            legend=dict(orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                        )
+
+        )
+
+        fig_violin.update_traces(hovertemplate=(
+                        "<b>Album:</b> %{customdata[0]}<br>" 
+                        "<b>Track:</b> %{customdata[1]}<br>"  
+                        "<b>Value:</b> %{y}<br>" 
+                    )
+                )
+
+        st.plotly_chart(fig_violin)
         st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
 
 
