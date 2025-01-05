@@ -5,6 +5,9 @@ import plotly.graph_objects as go
 import requests
 import lyricsgenius
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.manifold import TSNE
+
 import pandas as pd
 import streamlit as st
 
@@ -290,6 +293,34 @@ def album_features(item_data):
     )
 
     st.plotly_chart(fig_polar)
+
+    #tsne
+    features_tsne = [ 'acousticness', 'danceability', 'energy','instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo']
+    tsne_feature_data = df_tracks[features_tsne]
+
+    scaler_album_features = StandardScaler()
+    scaled_data = scaler_album_features.fit_transform(tsne_feature_data)
+
+    tsne = TSNE(n_components=2, perplexity=4, random_state=42)
+    tsne_embedding = tsne.fit_transform(scaled_data)
+    tsne_df = pd.DataFrame(tsne_embedding, columns=['x', 'y'])
+    tsne_df['track_label'] = df_tracks['track_label']
+
+    fig_tsne = px.scatter(
+        tsne_df, 
+        x='x', 
+        y='y', 
+        hover_data=['track_label'], 
+        color = 'track_label',
+    )
+
+    fig_tsne.update_layout(
+        title="t-SNE Visualization of Songs",
+        xaxis=dict(showgrid=True, showticklabels=False),  # Remove vertical grid lines and ticks
+        yaxis=dict(showgrid=True, showticklabels=False),  # Remove horizontal grid lines and ticks
+    )
+
+    st.plotly_chart(fig_tsne)
 
     #Dataframe with values printed
     print_features = ['track_label','acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo', 'popularity']
