@@ -1,5 +1,4 @@
 import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
@@ -11,16 +10,15 @@ from sklearn.manifold import TSNE
 import pandas as pd
 import streamlit as st
 
+from help_text import FEATURES_DESCRIPTION
+
 st.set_page_config(layout="wide")
 st.header('Music Analytics App')
 
-# sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(client_id=st.secrets['CLIENT_ID'],client_secret=st.secrets['CLIENT_SECRET']))
-# access_token = 'BQDLhaCDCpYj-Tt_CIQAg8tFk4KMdRPze5aH-Yr9XHqi2Ca6LcTIXP3Za6PMBriinmXKqOrMxBZMKDcEXGkgU_kJt9rxUXiw8OkuSYouJ3D6DgTCiTVgYQxnkhx6JMCa5YpdiBNW_G_0r7Tgk6i9Zw6T0Yt2tjJg6OTsB0UV3ZFNZxnwoYWWsEO7gZJix7EUZv494YifAku4lbbbFS6bch3nzcfG48mhr_nCHOO4s-Zq1I_8Za3TJp7iD3yvy8M1XQ0DqwaktmI0CAj_Gof6PmwukBrCxH1cVB26IF1QJYe8irieIWbVq9STZblc_eimhG98E1qcve5K50k'
-# # url = 'https://open.spotify.com/get_access_token'
 access_token = requests.get('https://open.spotify.com/get_access_token').json()['accessToken']
 sp = spotipy.Spotify(auth=access_token)
 
-genius_access_token = 'AjM8p0-uc9bBIb3Bww9Ft6BsldfDAsLXdpyucGP9lQHv6gtVJec0Lyg9dPnoxf-j'
+genius_access_token = 'udmXsZdYk7UifmED9mG8Ohjt33E6_1RFaLGDNVhsRONTGvaYVFGCVBWaFdgNQdvd'
 genius = lyricsgenius.Genius(genius_access_token, remove_section_headers=True, skip_non_songs=True)
 
 search_choices = ['Song', 'Album', 'Artist/Band']
@@ -28,9 +26,9 @@ search_selected = st.sidebar.selectbox("Search by: ", search_choices)
 search_keyword = st.text_input("Which " + search_selected.lower() + " do you have in mind?")
 
 params = {
-    'Song': {'search_by': "track", 'search_results': "{} - {}", 'item_choices': ['Song Features', 'Song Comparison']},
+    'Song': {'search_by': "track", 'search_results': "{} - {} (ID {})", 'item_choices': ['Song Features', 'Song Comparison']},
     'Album': {'search_by': 'album', 'search_results': "{} - {} ({})", 'item_choices': ['Album Features', 'Album Comparison']},
-    'Artist/Band': {'search_by': 'artist', 'search_results': "{}", 'item_choices': ['Artist/Band Features', 'Artist/Band Comparison']}
+    'Artist/Band': {'search_by': 'artist', 'search_results': "{} (ID {})", 'item_choices': ['Artist/Band Features', 'Artist/Band Comparison']}
 }
 
 def collect_input(search_keyword):
@@ -41,22 +39,22 @@ def collect_input(search_keyword):
     for item in items_list:
         if item is not None:
             if search_selected == 'Song':
-                search_results.append(params[search_selected]['search_results'].format(item['name'], item['artists'][0]['name']))
+                search_results.append(params[search_selected]['search_results'].format(item['name'], item['artists'][0]['name'], item['id']))
             elif search_selected == 'Album':
                 search_results.append(params[search_selected]['search_results'].format(item['name'], item['artists'][0]['name'], item['album_type']))
             elif search_selected == 'Artist/Band':
-                search_results.append(params[search_selected]['search_results'].format(item['name']))
+                search_results.append(params[search_selected]['search_results'].format(item['name'], item['id']))
 
     selected_item = st.selectbox(f"Select your {search_selected}: ", search_results)
 
     for item in items_list:
         if item is not None:
             if search_selected == 'Song':
-                str_temp = f"{item['name']} - {item['artists'][0]['name']}"
+                str_temp = f"{item['name']} - {item['artists'][0]['name']} (ID {item['id']})"
             elif search_selected == 'Album':
                 str_temp = f"{item['name']} - {item['artists'][0]['name']} ({item['album_type']})"
             elif search_selected == 'Artist/Band':
-                str_temp = item['name']
+                str_temp = f"{item['name']} (ID {item['id']})"
 
             if str_temp == selected_item:
                 item_data = item
@@ -69,6 +67,8 @@ def collect_analysis_info():
 
     if item_data is not None:
         selected_analysis = st.sidebar.selectbox('Select your action: ', params[search_selected]['item_choices'])  
+        with st.sidebar:
+            st.caption(FEATURES_DESCRIPTION, unsafe_allow_html=True)
 
     return selected_analysis, item_data
 
@@ -106,8 +106,9 @@ def song_features(item_data):
     st.dataframe(df_features, hide_index=True, use_container_width=True)
 
     song_lyrics = genius.search_song(item_data['name'], track_data['artists'][0]['name'])
-    st.markdown("##### Lyrics")
-    st.markdown(f":gray[{song_lyrics.lyrics.replace("\n", "<br>")}]", unsafe_allow_html=True)
+    if song_lyrics:
+        st.markdown("##### Lyrics")
+        st.markdown(f":gray[{song_lyrics.lyrics.replace("\n", "<br>")}]", unsafe_allow_html=True)
 
 def item_comparison():
     comparison_keyword = st.text_input("Which " + search_selected.lower() + " do you want to compare with?")
@@ -296,12 +297,11 @@ def album_features(item_data):
 
     #tsne
     features_tsne = [ 'acousticness', 'danceability', 'energy','instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo']
-    tsne_feature_data = df_tracks[features_tsne]
+    feature_data = df_tracks[features_tsne]
 
     scaler_album_features = StandardScaler()
-    scaled_data = scaler_album_features.fit_transform(tsne_feature_data)
-
-    tsne = TSNE(n_components=2, perplexity=4, random_state=42)
+    scaled_data = scaler_album_features.fit_transform(feature_data)
+    tsne = TSNE(n_components=2, perplexity=max(len(feature_data)//3, 1), random_state=42)
     tsne_embedding = tsne.fit_transform(scaled_data)
     tsne_df = pd.DataFrame(tsne_embedding, columns=['x', 'y'])
     tsne_df['track_label'] = df_tracks['track_label']
@@ -316,8 +316,9 @@ def album_features(item_data):
 
     fig_tsne.update_layout(
         title="t-SNE Visualization of Songs",
-        xaxis=dict(showgrid=True, showticklabels=False),  # Remove vertical grid lines and ticks
-        yaxis=dict(showgrid=True, showticklabels=False),  # Remove horizontal grid lines and ticks
+        xaxis_visible=False,
+        yaxis_visible=False,
+
     )
 
     st.plotly_chart(fig_tsne)
@@ -479,11 +480,43 @@ def album_comparison(item_data):
                                                         valence=("valence", "mean") 
                                                         ).reset_index()
         df_long = grouped_df.melt(id_vars=['album_id', 'album_name'], var_name='feature', value_name='value')
+        df_long = df_long.sort_values('album_name')
         fig_polar = px.line_polar(df_long, r='value', theta='feature', color='album_name', line_close=True, template="plotly_dark")
         fig_polar.update_layout(title = 'Polar Chart - Average Features',legend=dict(orientation="h"), height = 700, font_size = 16, autosize=True) 
         st.plotly_chart(fig_polar, use_container_width=True)
 
-@st.cache_data
+        #tsne
+        features_dimensionality = [ 'acousticness', 'danceability', 'energy','instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo']
+        feature_data = combined_df[features_dimensionality]
+
+        scaler_album_features = StandardScaler()
+        scaled_data = scaler_album_features.fit_transform(feature_data)
+
+        tsne = TSNE(n_components=2, perplexity=max(1, len(feature_data)//3), random_state=42)
+        tsne_embedding = tsne.fit_transform(scaled_data)
+        tsne_df = pd.DataFrame(tsne_embedding, columns=['x', 'y'])
+        tsne_df['track_label'] = combined_df['track_label']
+        tsne_df['album_name'] = combined_df['album_name']
+        tsne_df = tsne_df.sort_values('album_name')
+
+        fig_tsne = px.scatter(
+            tsne_df, 
+            x='x', 
+            y='y', 
+            hover_data=['track_label'], 
+            color = 'album_name',
+            template="plotly_dark"
+        )
+
+        fig_tsne.update_layout(
+            title="t-SNE Visualization of Album Songs",
+            xaxis_visible=False,
+            yaxis_visible=False,
+        )
+
+        st.plotly_chart(fig_tsne)
+
+# @st.cache_data
 def artist_features(item_data):
     item_id = item_data['id']
     st.subheader(f"{item_data['name']}")
@@ -575,15 +608,51 @@ def get_input_feature_and_plot(artist_df, valid_features):
         )
 
         feature = st.selectbox("Select an attribute to plot:", valid_features)
-        fig_boxplot = px.box(artist_df, 
-                        x="Album (Year)", 
-                        y=feature, 
-                        color="Album (Year)",
-                        custom_data=["Album"]
-                        )
-        
-        st.plotly_chart(fig_boxplot)
 
+        album_avg = artist_df.groupby("Album (Year)")[feature].mean().reset_index()
+        album_avg = album_avg.merge(artist_df[['Album (Year)', 'Release Date']].drop_duplicates(), on="Album (Year)")
+        scatter_df = artist_df.sort_values(by='Release Date')
+        album_avg = album_avg.sort_values(by='Release Date')
+
+        # fig_boxplot = px.box(artist_df, 
+        #                 x="Album (Year)", 
+        #                 y=feature, 
+        #                 color="Album (Year)",
+        #                 custom_data=["Album"]
+        #                 )
+        
+        # st.plotly_chart(fig_boxplot)
+
+        #scatter + line
+
+
+        # fig_scatter = px.scatter(
+        #     scatter_df, 
+        #     x="Album (Year)", 
+        #     y=feature, 
+        #     color="Album (Year)",  
+        #     title=f"Track {feature.capitalize()} Values per Album",
+        #     hover_data=["Album", "Track"],  
+        # )
+
+        # fig_scatter.add_trace(go.Scatter(
+        #     x=album_avg["Album (Year)"],  
+        #     y=album_avg[feature],  
+        #     mode="lines",  
+        #     name=f"Average {feature.capitalize()} per Album",  
+        #     line=dict(color="gray", width=2),  
+        # ))
+
+        # fig_scatter.update_layout(
+        #     xaxis_title=None,
+        #     yaxis_title=feature.capitalize(),
+        #     showlegend=False,  
+        #     # height=600,  
+        # )
+
+        # st.plotly_chart(fig_scatter, use_container_width=True)
+
+        #violin
         fig_violin = px.violin(artist_df, 
                     x="Album (Year)", 
                     y=feature, 
@@ -595,6 +664,7 @@ def get_input_feature_and_plot(artist_df, valid_features):
                 )
         
         fig_violin.update_layout(
+            title = "Violin Plot with Average Trend Line",
             xaxis_title="Album (Year)",
             yaxis_title=feature.capitalize(),
             xaxis_tickangle=-45,
@@ -609,45 +679,22 @@ def get_input_feature_and_plot(artist_df, valid_features):
                     )
                 )
 
-        st.plotly_chart(fig_violin)
-
-        #scatter + line
-
-        album_avg = artist_df.groupby("Album (Year)")[feature].mean().reset_index()
-        album_avg = album_avg.merge(artist_df[['Album (Year)', 'Release Date']].drop_duplicates(), on="Album (Year)")
-
-        scatter_df = artist_df.sort_values(by='Release Date')
-
-        album_avg = album_avg.sort_values(by='Release Date')
-
-        fig_scatter = px.scatter(
-            scatter_df, 
-            x="Album (Year)", 
-            y=feature, 
-            color="Album (Year)",  
-            title=f"Track {feature.capitalize()} Values per Album",
-            hover_data=["Album", "Track"],  
-        )
-
-        fig_scatter.add_trace(go.Scatter(
+        fig_violin.add_trace(go.Scatter(
             x=album_avg["Album (Year)"],  
             y=album_avg[feature],  
             mode="lines",  
             name=f"Average {feature.capitalize()} per Album",  
-            line=dict(color="white", width=2),  
+            line=dict(color="gray", width=2),  
         ))
 
-        fig_scatter.update_layout(
-            xaxis_title=None,
-            yaxis_title=feature.capitalize(),
-            showlegend=False,  
-            # height=600,  
-        )
 
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_violin)
 
         #Heatmap
-        heatmap_df = artist_df.set_index('Album (Year)')
+        heatmap_df = artist_df.groupby('Album (Year)')[['acousticness', 'danceability', 'energy', 'instrumentalness','liveness', 'speechiness', 'valence', 'popularity']].mean()
+        heatmap_df = heatmap_df.merge(artist_df[['Album (Year)', 'Release Date']].drop_duplicates(), on="Album (Year)")
+        heatmap_df = heatmap_df.sort_values(by='Release Date')
+        heatmap_df = heatmap_df.set_index('Album (Year)')
         heatmap_df = heatmap_df[['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'popularity']].round(3).T
         
         fig_heatmap = px.imshow(heatmap_df,
@@ -664,6 +711,36 @@ def get_input_feature_and_plot(artist_df, valid_features):
         )
 
         st.plotly_chart(fig_heatmap, use_container_width=True)
+
+        #tsne
+        features_dimensionality = [ 'acousticness', 'danceability', 'energy','instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo']
+        feature_data = scatter_df[features_dimensionality]
+
+        scaler_album_features = StandardScaler()
+        scaled_data = scaler_album_features.fit_transform(feature_data)
+
+        tsne = TSNE(n_components=2, perplexity=max(1, min(30, len(feature_data)//8)), random_state=42)
+        tsne_embedding = tsne.fit_transform(scaled_data)
+        tsne_df = pd.DataFrame(tsne_embedding, columns=['x', 'y'])
+        tsne_df['Album'] = scatter_df['Album']
+        tsne_df['Track'] = scatter_df['Track']
+
+        fig_tsne = px.scatter(
+            tsne_df, 
+            x='x', 
+            y='y', 
+            hover_data=['Album', 'Track'], 
+            color = 'Album',
+            template="plotly_dark"
+        )
+
+        fig_tsne.update_layout(
+            title="t-SNE Visualization of Album Songs",
+            xaxis_visible=False,
+            yaxis_visible=False,
+        )
+
+        st.plotly_chart(fig_tsne)
 
         st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
 
@@ -807,7 +884,6 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
                         else row['Album'],  
             axis=1
         )
-
         
         #heat albuns
         heatmap_features = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'popularity']
@@ -879,6 +955,39 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
         fig_polar.update_layout(title = 'Polar Chart - Average Features',legend=dict(orientation="h"), height = 700, font_size = 16, autosize=True) 
         st.plotly_chart(fig_polar, use_container_width=True)
 
+        #tsne
+        features_dimensionality = ['acousticness', 'danceability', 'energy','instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo']
+        feature_data = artist_df[features_dimensionality]
+
+        scaler_album_features = StandardScaler()
+        scaled_data = scaler_album_features.fit_transform(feature_data)
+
+        tsne = TSNE(n_components=2, perplexity=max(1, min(30, len(feature_data)//10)), random_state=42)
+        tsne_embedding = tsne.fit_transform(scaled_data)
+        tsne_df = pd.DataFrame(tsne_embedding, columns=['x', 'y'])
+        tsne_df['Album'] = artist_df['Album']
+        tsne_df['Track'] = artist_df['Track']
+        tsne_df['Artist'] = artist_df['Artist']
+
+        fig_tsne = px.scatter(
+            tsne_df, 
+            x='x', 
+            y='y', 
+            hover_data=['Album', 'Track', 'Artist'], 
+            color = 'Artist',
+            symbol = 'Album',
+            template="plotly_dark"
+        )
+
+        fig_tsne.update_layout(
+            title="t-SNE Visualization of Album Songs",
+            xaxis_visible=False,
+            yaxis_visible=False,
+        )
+
+        st.plotly_chart(fig_tsne)
+
+        #plots by feature
         feature = st.selectbox("Select an attribute to plot:", valid_features)
         
         #boxplot
@@ -940,6 +1049,7 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
                 )
 
         st.plotly_chart(fig_violin)
+
         st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
 
 
