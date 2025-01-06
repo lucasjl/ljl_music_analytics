@@ -789,6 +789,7 @@ def artist_comparison(item_data, item_comparison_data):
                 track_data.append({
                     "Artist ID": item_data['id'],
                     "Artist": item_data['name'],
+                    "Artist Number": 1,
                     "Album ID": album['id'],
                     "Album": album['name'],
                     "Release Date": album['release_date'],
@@ -824,6 +825,7 @@ def artist_comparison(item_data, item_comparison_data):
                 track_data.append({
                     "Artist ID": item_comparison_data['id'],
                     "Artist": item_comparison_data['name'],
+                    "Artist Number": 2,
                     "Album ID": album['id'],
                     "Album": album['name'],
                     "Release Date": album['release_date'],
@@ -939,8 +941,9 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
             st.plotly_chart(fig_2, use_container_width=True)
 
         #polar chart
-        grouped_df = artist_df.groupby("Artist ID").agg(
+        grouped_df = artist_df.groupby("Artist Number").agg(
                                                         artist_name=("Artist", "first"),
+                                                        # artist_number=("Artist Number", "first"),
                                                         popularity=("popularity", "mean"),
                                                         acousticness=("acousticness", "mean"), 
                                                         danceability=("danceability", "mean"), 
@@ -950,7 +953,7 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
                                                         speechiness=("speechiness", "mean"), 
                                                         valence=("valence", "mean") 
                                                         ).reset_index()
-        df_long = grouped_df.melt(id_vars=['Artist ID', 'artist_name'], var_name='feature', value_name='value')
+        df_long = grouped_df.melt(id_vars=['Artist Number', 'artist_name'], var_name='feature', value_name='value')
         fig_polar = px.line_polar(df_long, r='value', theta='feature', color='artist_name', line_close=True, template="plotly_dark")
         fig_polar.update_layout(title = 'Polar Chart - Average Features',legend=dict(orientation="h"), height = 700, font_size = 16, autosize=True) 
         st.plotly_chart(fig_polar, use_container_width=True)
@@ -1012,8 +1015,47 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
                         )
 
         )
-        
-        st.plotly_chart(fig_boxplot)
+
+        artist_1_avg = filtered_df_1.groupby("Album (Year)")[feature].mean().reset_index()
+        artist_1_avg = artist_1_avg.merge(artist_df[['Album (Year)', 'Release Date']].drop_duplicates(), on="Album (Year)")
+        artist_1_avg = artist_1_avg.sort_values(by='Release Date')
+        artist_2_avg = filtered_df_2.groupby("Album (Year)")[feature].mean().reset_index()
+        artist_2_avg = artist_2_avg.merge(artist_df[['Album (Year)', 'Release Date']].drop_duplicates(), on="Album (Year)")
+        artist_2_avg = artist_2_avg.sort_values(by='Release Date')
+
+        fig_line = go.Figure()
+
+        fig_line.update_layout(
+            title = f"{feature.capitalize()} per album over time - Line",
+            yaxis_title=feature.capitalize(),
+            xaxis_title=None,
+            legend=dict(orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="right",
+                        x=1
+                        ),
+            xaxis=dict(categoryorder='array',
+                       categoryarray=artist_df['Album (Year)'].tolist(),
+                       showgrid=True),
+        )
+
+        fig_line.add_trace(go.Scatter(
+            x=artist_1_avg["Album (Year)"],  
+            y=artist_1_avg[feature],  
+            mode="lines+markers",  
+            name=f"Average {feature.capitalize()} - {item_data['name']}",  
+            line=dict(color="blue", width=2),  
+        ))
+
+        fig_line.add_trace(go.Scatter(
+            x=artist_2_avg["Album (Year)"],  
+            y=artist_2_avg[feature],  
+            mode="lines+markers",  
+            name=f"Average {feature.capitalize()} - {item_comparison_data['name']}",  
+            line=dict(color="red", width=2),  
+        ))
+
         
         #violin
         fig_violin = px.violin(artist_df, 
@@ -1047,10 +1089,21 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
                         "<b>Value:</b> %{y}<br>" 
                     )
                 )
+        
+        #plot charts
+        tabs = st.tabs(["Violin", "Boxplot", "Line"])
 
-        st.plotly_chart(fig_violin)
+        with tabs[0]:
+            st.plotly_chart(fig_violin)
 
-        st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
+        with tabs[1]:
+            st.plotly_chart(fig_boxplot)
+
+        with tabs[2]:
+            st.plotly_chart(fig_line)
+
+        st.text("Source Data:")
+        st.dataframe(artist_df[['Artist','Album', 'Release Date', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'tempo', 'duration_ms']])
 
 
 if __name__ == "__main__":
