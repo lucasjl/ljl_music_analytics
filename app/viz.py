@@ -296,32 +296,32 @@ def album_features(item_data):
     st.plotly_chart(fig_polar)
 
     #tsne
-    features_tsne = [ 'acousticness', 'danceability', 'energy','instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo']
-    feature_data = df_tracks[features_tsne]
+    # features_tsne = [ 'acousticness', 'danceability', 'energy','instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo']
+    # feature_data = df_tracks[features_tsne]
 
-    scaler_album_features = StandardScaler()
-    scaled_data = scaler_album_features.fit_transform(feature_data)
-    tsne = TSNE(n_components=2, perplexity=max(len(feature_data)//3, 1), random_state=42)
-    tsne_embedding = tsne.fit_transform(scaled_data)
-    tsne_df = pd.DataFrame(tsne_embedding, columns=['x', 'y'])
-    tsne_df['track_label'] = df_tracks['track_label']
+    # scaler_album_features = StandardScaler()
+    # scaled_data = scaler_album_features.fit_transform(feature_data)
+    # tsne = TSNE(n_components=2, perplexity=max(len(feature_data)//3, 1), random_state=42)
+    # tsne_embedding = tsne.fit_transform(scaled_data)
+    # tsne_df = pd.DataFrame(tsne_embedding, columns=['x', 'y'])
+    # tsne_df['track_label'] = df_tracks['track_label']
 
-    fig_tsne = px.scatter(
-        tsne_df, 
-        x='x', 
-        y='y', 
-        hover_data=['track_label'], 
-        color = 'track_label',
-    )
+    # fig_tsne = px.scatter(
+    #     tsne_df, 
+    #     x='x', 
+    #     y='y', 
+    #     hover_data=['track_label'], 
+    #     color = 'track_label',
+    # )
 
-    fig_tsne.update_layout(
-        title="t-SNE Visualization of Songs",
-        xaxis_visible=False,
-        yaxis_visible=False,
+    # fig_tsne.update_layout(
+    #     title="t-SNE Visualization of Songs",
+    #     xaxis_visible=False,
+    #     yaxis_visible=False,
 
-    )
+    # )
 
-    st.plotly_chart(fig_tsne)
+    # st.plotly_chart(fig_tsne)
 
     #Dataframe with values printed
     print_features = ['track_label','acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'tempo', 'popularity']
@@ -510,13 +510,19 @@ def album_comparison(item_data):
 
         fig_tsne.update_layout(
             title="t-SNE Visualization of Album Songs",
-            xaxis_visible=False,
-            yaxis_visible=False,
+            xaxis=dict(
+                showgrid=True,
+                showticklabels=False,
+            ),
+            yaxis=dict(
+                showgrid=True,
+                showticklabels=False,
+            ),
         )
 
         st.plotly_chart(fig_tsne)
 
-# @st.cache_data
+@st.cache_data
 def artist_features(item_data):
     item_id = item_data['id']
     st.subheader(f"{item_data['name']}")
@@ -735,16 +741,22 @@ def get_input_feature_and_plot(artist_df, valid_features):
         )
 
         fig_tsne.update_layout(
-            title="t-SNE Visualization of Album Songs",
-            xaxis_visible=False,
-            yaxis_visible=False,
+            title="t-SNE Visualization of Artist Discography",
+            xaxis=dict(
+                showgrid=True,
+                showticklabels=False,
+            ),
+            yaxis=dict(
+                showgrid=True,
+                showticklabels=False,
+            ),
         )
 
         st.plotly_chart(fig_tsne)
 
         st.dataframe(artist_df[['Album', 'Release Year', 'Track', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'liveness', 'speechiness', 'valence', 'loudness', 'duration_ms']])
 
-# @st.cache_data
+@st.cache_data
 def artist_comparison(item_data, item_comparison_data):
     if item_comparison_data is not None:
         item_id_1 = item_data['id']
@@ -983,9 +995,15 @@ def get_artist_comparison_input_and_plot(artist_df, valid_features, item_data, i
         )
 
         fig_tsne.update_layout(
-            title="t-SNE Visualization of Album Songs",
-            xaxis_visible=False,
-            yaxis_visible=False,
+            title="t-SNE Visualization of Artists Discography",
+            xaxis=dict(
+                showgrid=True,
+                showticklabels=False,
+            ),
+            yaxis=dict(
+                showgrid=True,
+                showticklabels=False,
+            ),
         )
 
         st.plotly_chart(fig_tsne)
