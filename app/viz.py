@@ -18,7 +18,6 @@ st.header('Music Analytics App')
 access_token = requests.get('https://open.spotify.com/get_access_token').json()['accessToken']
 sp = spotipy.Spotify(auth=access_token)
 
-# genius_access_token = 'udmXsZdYk7UifmED9mG8Ohjt33E6_1RFaLGDNVhsRONTGvaYVFGCVBWaFdgNQdvd'
 genius_access_token = st.secrets['GENIUS_TOKEN']
 genius = lyricsgenius.Genius(genius_access_token, remove_section_headers=True, skip_non_songs=True)
 
